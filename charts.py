@@ -40,6 +40,14 @@ def _fig(w=6.5, h=3.8):
     fig.patch.set_facecolor(BG); ax.set_facecolor(CARD)
     return fig, ax
 
+def _empty_fig(w=6.5, h=3.8):
+    """Returns an empty figure gracefully if data is filtered out."""
+    fig, ax = _fig(w, h)
+    ax.text(0.5, 0.5, "No data available for the selected filters", 
+            ha="center", va="center", color=TX, fontsize=10, fontweight="bold")
+    ax.axis("off")
+    return fig
+
 def _T(ax, title, xl="", yl="", subtitle=""):
     ax.set_title(title, color=TX, fontsize=11, fontweight="bold", pad=10, loc="left")
     if subtitle:
@@ -73,8 +81,11 @@ def _add_bar_labels(ax, bars, fmt="{:,.0f}", color=TX, fs=8, pad=0.012, orient="
 
 # ── 1. PIE ── legend below, % inside, no overlap ──────────────────
 def chart_pie(df):
+    if df is None or df.empty: return _empty_fig()
     totals = get_plastic_type_totals(df)
     totals = totals[totals > 0]
+    if totals.empty: return _empty_fig()
+    
     fig = plt.figure(figsize=(6.2, 6.0)); fig.patch.set_facecolor(BG)
     ax  = fig.add_axes([0.05, 0.28, 0.90, 0.66]); ax.set_facecolor(BG)
     wedges, _ = ax.pie(totals.values, labels=None, startangle=140,
@@ -99,8 +110,11 @@ def chart_pie(df):
 
 # ── 2. HISTOGRAM ──────────────────────────────────────────────────
 def chart_histogram(df):
+    if df is None or df.empty: return _empty_fig()
     real = df[df["parent_company"]!="Grand Total"]
     data = real["grand_total"][real["grand_total"]>0].clip(upper=2000)
+    if data.empty: return _empty_fig()
+    
     fig, ax = _fig(6.5, 3.8)
     n, bins, patches = ax.hist(data, bins=45, log=True, edgecolor="none")
     for i,p in enumerate(patches):
@@ -116,7 +130,10 @@ def chart_histogram(df):
 
 # ── 3. LINE ───────────────────────────────────────────────────────
 def chart_line(df):
+    if df is None or df.empty: return _empty_fig()
     yd = get_yearly_trend(df)
+    if yd.empty: return _empty_fig()
+    
     xs, ys = yd["year"].values, yd["Total_Plastic"].values
     fig, ax = _fig(6.2, 3.8)
     ax.fill_between(xs, ys, alpha=0.12, color="#0077B6")
@@ -138,7 +155,10 @@ def chart_line(df):
 
 # ── 4. BAR (horizontal) ───────────────────────────────────────────
 def chart_bar(df, n=10):
+    if df is None or df.empty: return _empty_fig()
     cdf = get_country_totals(df).head(n)
+    if cdf.empty: return _empty_fig()
+    
     fig, ax = _fig(7.0, max(3.2, n*0.40))
     for i,(_,row) in enumerate(cdf[::-1].iterrows()):
         ax.barh(i, row["Total Plastic"], color=G1(i/max(len(cdf)-1,1)),
@@ -157,7 +177,10 @@ def chart_bar(df, n=10):
 
 # ── 5. SCATTER ────────────────────────────────────────────────────
 def chart_scatter(df):
+    if df is None or df.empty: return _empty_fig()
     real = df[df["parent_company"]!="Grand Total"]
+    if real.empty: return _empty_fig()
+    
     by_c = real.groupby("country").agg(
         volunteers=("volunteers","sum"),
         grand_total=("grand_total","sum")).reset_index()
@@ -184,9 +207,16 @@ def chart_scatter(df):
 
 # ── 6. BOX ────────────────────────────────────────────────────────
 def chart_box(df):
+    if df is None or df.empty: return _empty_fig()
     real = df[df["parent_company"]!="Grand Total"]
+    if real.empty: return _empty_fig()
+    
     years = sorted(real["year"].unique())
+    if not years: return _empty_fig()
+    
     data  = [real.loc[real["year"]==y,"grand_total"].clip(upper=3000).values for y in years]
+    if not data or all(len(d) == 0 for d in data): return _empty_fig()
+    
     fig, ax = _fig(5.0, 3.8)
     bp = ax.boxplot(data, labels=[str(y) for y in years], patch_artist=True, widths=0.40,
                     medianprops={"color":"#0096C7","linewidth":2.5},
@@ -210,7 +240,10 @@ def chart_box(df):
 
 # ── 7. HEATMAP ────────────────────────────────────────────────────
 def chart_heatmap(df):
+    if df is None or df.empty: return _empty_fig()
     real = df[df["parent_company"]!="Grand Total"]
+    if real.empty: return _empty_fig()
+    
     cols = ["hdpe","ldpe","o","pet","pp","ps","pvc","grand_total","num_events","volunteers"]
     labs = ["HDPE","LDPE","Other","PET","PP","PS","PVC","Grand Total","Events","Volunteers"]
     corr = real[cols].corr(); corr.index=corr.columns=labs
@@ -232,7 +265,10 @@ def chart_heatmap(df):
 
 # ── 8. AREA ───────────────────────────────────────────────────────
 def chart_area(df):
+    if df is None or df.empty: return _empty_fig()
     yd = get_plastic_by_year(df)
+    if yd.empty: return _empty_fig()
+    
     pt = [p for p in ["PET","HDPE","PP","LDPE","Other","PS","PVC","Empty"] if p in yd.columns]
     fig, ax = _fig(6.8, 3.8)
     ax.stackplot(yd["year"],[yd[p] for p in pt], labels=pt, colors=C[:len(pt)], alpha=0.80)
@@ -246,8 +282,11 @@ def chart_area(df):
 
 # ── 9. COUNT ──────────────────────────────────────────────────────
 def chart_countplot(df):
+    if df is None or df.empty: return _empty_fig()
     real   = df[df["parent_company"]!="Grand Total"]
     counts = real["year"].value_counts().sort_index()
+    if counts.empty: return _empty_fig()
+    
     fig, ax = _fig(5.0, 3.8)
     bars = ax.bar(counts.index.astype(str), counts.values,
                   color=["#0077B6","#E63946"][:len(counts)], edgecolor="none", width=0.40)
@@ -263,8 +302,11 @@ def chart_countplot(df):
 
 # ── 10. VIOLIN ────────────────────────────────────────────────────
 def chart_violin(df):
+    if df is None or df.empty: return _empty_fig()
     real = df[df["parent_company"]!="Grand Total"]
     c = real[real["pet"]>0].copy()
+    if c.empty: return _empty_fig()
+    
     c["pet"]  = c["pet"].clip(upper=600)
     c["year"] = c["year"].astype(str)
     fig, ax = _fig(5.0, 3.8)
@@ -278,7 +320,10 @@ def chart_violin(df):
 
 # ── TOP COMPANIES ─────────────────────────────────────────────────
 def chart_top_companies(df, n=10):
+    if df is None or df.empty: return _empty_fig()
     top = get_top_polluters(df, n=n)
+    if top.empty: return _empty_fig()
+    
     fig, ax = _fig(8.0, max(3.2, n*0.40))
     bars = []
     for i,(_,row) in enumerate(top[::-1].iterrows()):
@@ -300,7 +345,10 @@ def chart_top_companies(df, n=10):
 
 # ── VOLUNTEERS LINE ───────────────────────────────────────────────
 def chart_volunteers(df):
+    if df is None or df.empty: return _empty_fig()
     yd = get_yearly_trend(df)
+    if yd.empty: return _empty_fig()
+    
     xs = yd["year"].values; ys = yd["Total_Volunteers"].values
     fig, ax = _fig(6.2, 3.8)
     ax.fill_between(xs, ys, alpha=0.12, color="#7B2FBE")
@@ -322,7 +370,10 @@ def chart_volunteers(df):
 
 # ── 2019 vs 2020 GROUPED BAR ─────────────────────────────────────
 def chart_plastic_compare(df):
+    if df is None or df.empty: return _empty_fig()
     real = df[df["parent_company"]!="Grand Total"]
+    if real.empty: return _empty_fig()
+    
     cols  = {"HDPE":"hdpe","LDPE":"ldpe","Other":"o","PET":"pet",
              "PP":"pp","PS":"ps","PVC":"pvc","Empty":"empty"}
     years = sorted(real["year"].unique())
@@ -342,7 +393,10 @@ def chart_plastic_compare(df):
 
 # ── COUNTRY PIE ───────────────────────────────────────────────────
 def chart_country_pie(df):
+    if df is None or df.empty: return _empty_fig()
     cdf = get_country_totals(df).head(8)
+    if cdf.empty: return _empty_fig()
+    
     fig = plt.figure(figsize=(6.2, 6.0)); fig.patch.set_facecolor(BG)
     ax  = fig.add_axes([0.05, 0.28, 0.90, 0.66]); ax.set_facecolor(BG)
     wedges, _ = ax.pie(cdf["Total Plastic"], labels=None, startangle=140,
@@ -368,7 +422,10 @@ def chart_country_pie(df):
 
 # ── EVENTS LINE ───────────────────────────────────────────────────
 def chart_events(df):
+    if df is None or df.empty: return _empty_fig()
     yd = get_yearly_trend(df)
+    if yd.empty: return _empty_fig()
+    
     xs = yd["year"].values; ys = yd["Num_Events"].values
     fig, ax = _fig(6.2, 3.8)
     ax.fill_between(xs, ys, alpha=0.12, color="#2196F3")
@@ -388,11 +445,16 @@ def chart_events(df):
 
 # ── EFFICIENCY ────────────────────────────────────────────────────
 def chart_efficiency(df):
+    if df is None or df.empty: return _empty_fig()
     real = df[df["parent_company"]!="Grand Total"]
+    if real.empty: return _empty_fig()
+    
     by_c = real.groupby("country").agg(
         volunteers=("volunteers","sum"),
         grand_total=("grand_total","sum")).reset_index()
     by_c = by_c[by_c["volunteers"]>0]
+    if by_c.empty: return _empty_fig()
+    
     by_c["ratio"] = by_c["grand_total"]/by_c["volunteers"]
     top = by_c.nlargest(12,"ratio")
     fig, ax = _fig(7.5, 4.0)
@@ -413,7 +475,10 @@ def chart_efficiency(df):
 
 # ── NESTED DONUT ──────────────────────────────────────────────────
 def chart_nested_donut(df):
+    if df is None or df.empty: return _empty_fig()
     real = df[df["parent_company"]!="Grand Total"]
+    if real.empty: return _empty_fig()
+    
     plastic_cols = {"PET":"pet","PP":"pp","HDPE":"hdpe","Other":"o",
                     "LDPE":"ldpe","PS":"ps","PVC":"pvc","Empty":"empty"}
     years = sorted(real["year"].unique())
